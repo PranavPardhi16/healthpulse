@@ -1,4 +1,4 @@
-# 🩺 Vitals - Real-Time Telemedicine Command Center
+# 🩺 HealthPulse - Real-Time Telemedicine Command Center
 
 A professional, high-performance telemedicine platform built with **Next.js 15**, **React 19**, and **Prisma**. This application features a dual-interface ecosystem for Doctors and Patients, providing real-time vital sign monitoring, automated clinical alerts, and secure authentication.
 
