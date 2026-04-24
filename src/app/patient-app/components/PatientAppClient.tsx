@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, Wifi, WifiOff, Power, LogOut, AlertTriangle, BarChart2, List, Stethoscope,  } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSession, signOut } from 'next-auth/react';
 import { generateVitalReading, checkAlerts, getOverallStatus, type VitalReading, type Alert,  } from '@/lib/vitals';
 import PatientVitalCard from './PatientVitalCard';
 import PatientTrendPanel from './PatientTrendPanel';
@@ -10,19 +11,10 @@ import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
 
 
-const PATIENT_PROFILE = {
-  id: 'patient-self',
-  name: 'Sarah Chen',
-  age: 34,
-  patientId: 'HP-2024-0892',
-  doctor: 'Dr. Kavya Reddy',
-  ward: 'Remote Monitoring',
-  condition: 'Hypertension Management',
-};
-
 let readingSeq = 0;
 
 export default function PatientAppClient() {
+  const { data: session } = useSession();
   const [connected, setConnected] = useState(false);
   const [readings, setReadings] = useState<VitalReading[]>([]);
   const [currentReading, setCurrentReading] = useState<VitalReading | null>(null);
@@ -32,6 +24,19 @@ export default function PatientAppClient() {
   const [connecting, setConnecting] = useState(false);
   const [timeStr, setTimeStr] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const PATIENT_PROFILE = {
+    id: 'patient-self',
+    name: session?.user?.name || 'Sarah Chen',
+    age: 34,
+    patientId: session?.user?.email || 'HP-2024-0892',
+    doctor: 'Dr. Kavya Reddy',
+    ward: 'Remote Monitoring',
+    condition: 'Hypertension Management',
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
 
   useEffect(() => {
     const update = () => {
@@ -129,13 +134,13 @@ export default function PatientAppClient() {
           <Stethoscope size={13} />
           <span className="hidden sm:inline">Doctor View</span>
         </a>
-        <a
-          href="/sign-up-login"
+        <button
+          onClick={() => signOut({ callbackUrl: '/' })} // This destroys the session!
           className="p-2 rounded-lg transition-colors"
           style={{ color: 'hsl(215 20% 55%)' }}
         >
           <LogOut size={16} />
-        </a>
+        </button>
       </header>
 
       <div className="flex-1 max-w-screen-2xl mx-auto w-full px-4 lg:px-8 xl:px-12 py-6 grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -151,7 +156,7 @@ export default function PatientAppClient() {
                 className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
                 style={{ background: 'hsl(199 89% 30%)', color: 'hsl(199 89% 85%)' }}
               >
-                SC
+                {getInitials(PATIENT_PROFILE.name)}
               </div>
               <div>
                 <p className="font-semibold text-sm" style={{ color: 'hsl(210 40% 96%)' }}>

@@ -2,6 +2,7 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import '../styles/tailwind.css';
 import { Toaster } from 'sonner';
+import { Providers } from "./providers";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -10,8 +11,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'HealthPulse — Real-Time Remote Patient Monitoring',
-  description:
-    'HealthPulse enables physicians to monitor live patient vitals, receive threshold-based alerts, and manage remote care from a single clinical dashboard.',
+  description: 'HealthPulse enables physicians to monitor live patient vitals...',
   icons: {
     icon: [{ url: '/favicon.ico', type: 'image/x-icon' }],
   },
@@ -23,7 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        {/* ✅ IMPORTANT: Wrap entire app with Providers */}
+        <Providers>
+          {children}
+        </Providers>
+
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -36,8 +40,17 @@ export default function RootLayout({
           }}
         />
 
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fhealthpuls9132back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.18" />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
+        <script
+          type="module"
+          async
+          src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fhealthpuls9132back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.18"
+        />
+        <script
+          type="module"
+          defer
+          src="https://static.rocket.new/rocket-shot.js?v=0.0.2"
+        />
+      </body>
     </html>
   );
 }

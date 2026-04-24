@@ -10,13 +10,25 @@ interface AlertFeedProps {
 }
 
 export default function AlertFeed({ alerts, onAcknowledge, onAcknowledgeAll }: AlertFeedProps) {
-  const [filter, setFilter] = useState<'all' | 'active' | 'critical'>('active');
+  const [filter, setFilter] = useState<'all' | 'active' | 'critical' | 'warnings'>('active');
   const [expanded, setExpanded] = useState(true);
 
   const filtered = alerts.filter((a) => {
-    if (filter === 'active') return !a.acknowledged;
-    if (filter === 'critical') return a.severity === 'critical' && !a.acknowledged;
-    return true;
+    const safeSeverity = a.severity.toLowerCase();
+    switch (filter) {
+      case 'active':
+        return !a.acknowledged; 
+      
+      case 'critical':
+        return a.severity === 'critical' && !a.acknowledged; 
+      
+      case 'warnings':
+        return a.severity === 'warning' && !a.acknowledged;
+      
+      case 'all':
+      default:
+        return true; 
+    }
   }).slice(0, 50);
 
   const activeCount = alerts.filter((a) => !a.acknowledged).length;
@@ -75,7 +87,7 @@ export default function AlertFeed({ alerts, onAcknowledge, onAcknowledgeAll }: A
             className="flex gap-1 px-2 py-2 border-b"
             style={{ borderColor: 'hsl(222 30% 14%)' }}
           >
-            {(['active', 'critical', 'all'] as const).map((f) => (
+            {(['active', 'critical', 'warnings', 'all'] as const).map((f) => (
               <button
                 key={`filter-${f}`}
                 onClick={() => setFilter(f)}

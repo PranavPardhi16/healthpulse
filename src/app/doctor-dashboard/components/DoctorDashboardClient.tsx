@@ -9,6 +9,7 @@ import AlertFeed from './AlertFeed';
 import VitalTrendChart from './VitalTrendChart';
 import DoctorHeader from './DoctorHeader';
 import AppLogo from '@/components/ui/AppLogo';
+import { signOut } from 'next-auth/react';
 
 const SCENARIO_MAP: Record<string, 'normal' | 'warning' | 'critical'> = {
   'patient-001': 'warning',
@@ -28,8 +29,9 @@ export default function DoctorDashboardClient() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'vitals' | 'trends' | 'history'>('vitals');
+  const [activeNav, setActiveNav] = useState<string>('nav-dashboard'); 
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
+  const [activeTab, setActiveTab] = useState<'vitals' | 'trends' | 'history'>('vitals');
   const prevAlertsRef = useRef<Set<string>>(new Set());
 
   // Backend integration point: replace this interval with Socket.io event listener
@@ -101,11 +103,11 @@ export default function DoctorDashboardClient() {
   const criticalCount = activeAlerts.filter((a) => a.severity === 'critical').length;
 
   const navItems = [
-    { id: 'nav-dashboard', icon: LayoutDashboard, label: 'Dashboard', active: true },
-    { id: 'nav-patients', icon: Users, label: 'Patients', active: false },
-    { id: 'nav-alerts', icon: Bell, label: 'Alerts', badge: activeAlerts.length, active: false },
-    { id: 'nav-reports', icon: FileText, label: 'Reports', active: false },
-    { id: 'nav-settings', icon: Settings, label: 'Settings', active: false },
+    { id: 'nav-dashboard', icon: LayoutDashboard, label: 'Dashboard', active: activeNav === 'nav-dashboard' },
+    { id: 'nav-patients', icon: Users, label: 'Patients', active: activeNav === 'nav-patients' },
+    { id: 'nav-alerts', icon: Bell, label: 'Alerts', badge: activeAlerts.length, active: activeNav === 'nav-alerts' },
+    { id: 'nav-reports', icon: FileText, label: 'Reports', active: activeNav === 'nav-reports' },
+    { id: 'nav-settings', icon: Settings, label: 'Settings', active: activeNav === 'nav-settings' },
   ];
 
   return (
@@ -173,29 +175,28 @@ export default function DoctorDashboardClient() {
           {navItems.map((item) => (
             <button
               key={item.id}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 text-left
-                ${item.active ? 'text-white' : ''}
-              `}
-              style={{
-                background: item.active ? 'hsl(199 89% 48% / 0.15)' : 'transparent',
-                color: item.active ? 'hsl(199 89% 65%)' : 'hsl(215 20% 55%)',
-                border: item.active ? '1px solid hsl(199 89% 48% / 0.25)' : '1px solid transparent',
-              }}
+              onClick={() => setActiveNav(activeNav === item.id ? 'nav-dashboard' : item.id)}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+                item.active
+                  ? 'bg-[hsl(222,47%,16%)] text-[hsl(210,40%,90%)]'
+                  : 'text-[hsl(215,15%,45%)] hover:bg-[hsl(222,47%,12%)] hover:text-[hsl(210,40%,90%)]'
+              }`}
             >
-              <item.icon size={18} className="flex-shrink-0" />
-              {sidebarOpen && (
-                <>
-                  <span className="text-sm font-medium flex-1">{item.label}</span>
-                  {item.badge && item.badge > 0 ? (
-                    <span
-                      className="text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-                      style={{ background: 'hsl(0 84% 60% / 0.2)', color: 'hsl(0 84% 70%)' }}
-                    >
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </>
+              <item.icon
+                size={18}
+                className={item.active ? 'text-[hsl(199,89%,65%)]' : 'text-[hsl(215,15%,45%)] group-hover:text-[hsl(210,40%,90%)]'}
+              />
+              <span className="text-sm font-medium">{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span
+                  className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: item.id === 'nav-alerts' && activeAlerts.length > 0 ? 'hsl(0 84% 60%)' : 'hsl(222 47% 20%)',
+                    color: item.id === 'nav-alerts' && activeAlerts.length > 0 ? 'white' : 'hsl(210 40% 90%)',
+                  }}
+                >
+                  {item.badge}
+                </span>
               )}
             </button>
           ))}
@@ -214,14 +215,14 @@ export default function DoctorDashboardClient() {
             <Stethoscope size={18} className="flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Patient View</span>}
           </a>
-          <a
-            href="/sign-up-login"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150"
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })} // This securely destroys the session!
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 text-left"
             style={{ color: 'hsl(215 20% 55%)' }}
           >
             <LogOut size={18} className="flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Sign Out</span>}
-          </a>
+          </button>
         </div>
       </aside>
 
@@ -248,11 +249,13 @@ export default function DoctorDashboardClient() {
         {/* Content area */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Patient list */}
-          <PatientListSidebar
-            patients={patients}
-            selectedPatientId={selectedPatientId}
-            onSelectPatient={setSelectedPatientId}
-          />
+          {activeNav === 'nav-patients' && (
+            <PatientListSidebar
+              patients={patients}
+              selectedPatientId={selectedPatientId}
+              onSelectPatient={setSelectedPatientId}
+            />
+          )}
 
           {/* Main panel */}
           <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-4 lg:p-6 gap-4 lg:gap-6">

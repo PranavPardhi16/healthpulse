@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import{ useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { signIn, useSession } from 'next-auth/react';
 import {
   Eye,
   EyeOff,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
@@ -244,14 +246,81 @@ function DemoCredentialsBox({
   );
 }
 
+// Google Sign-In Button
+function GoogleSignInButton({ isLoading, selectedRole }: { isLoading: boolean; selectedRole: Role }) {
+  const handleGoogleSignIn = async () => {
+    try {
+      // ✅ ADDED LOGIC: Drop the cookie so the backend knows which role they selected
+      document.cookie = `intended_role=${selectedRole}; path=/; max-age=120`;
+
+      await signIn('google', {
+        // ✅ CHANGED LOGIC: Removed `redirect: false`. OAuth providers usually need the 
+        // browser to redirect to their login page.
+        callbackUrl: selectedRole === 'doctor' ? '/doctor-dashboard' : '/patient-app',
+      });
+    } catch (error) {
+      toast.error('Google sign-in failed. Please try again.');
+      console.error('Google sign-in error:', error);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleGoogleSignIn}
+      disabled={isLoading}
+      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all duration-150 active:scale-95 disabled:opacity-60"
+      style={{
+        background: 'hsl(222 47% 14%)',
+        border: '1px solid hsl(222 30% 20%)',
+        color: 'hsl(210 40% 96%)',
+        minHeight: 42,
+      }}
+    >
+      {isLoading ? (
+        <Loader2 size={15} className="animate-spin" />
+      ) : (
+        <>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign In with Google
+        </>
+      )}
+    </button>
+  );
+}
+
 export default function AuthPageClient() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [mode, setMode] = useState<AuthMode>('login');
   const [selectedRole, setSelectedRole] = useState<Role>('doctor');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Redirect if already logged in via Google
+  useEffect(() => {
+  if (status === 'loading') return; // ⛔ wait for session
+
+  if (status === 'authenticated' && session?.user) {
+    const role = (session.user as any).role;
+
+    // ✅ only redirect if role actually exists
+    if (!role) return;
+
+    const destination =
+      role === 'doctor' ? '/doctor-dashboard' : '/patient-app';
+
+    router.push(destination);
+  }
+}, [status, session, router]);
 
   const loginForm = useForm<LoginForm>({
     defaultValues: { email: '', password: '', remember: false },
@@ -268,23 +337,33 @@ export default function AuthPageClient() {
     },
   });
 
-  const handleLoginSubmit = (data: LoginForm) => {
+  const handleLoginSubmit = async (data: LoginForm) => {
     setAuthError(null);
     setIsSubmitting(true);
 
-    // Backend integration point: POST /api/auth/login { email, password }
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const match = DEMO_CREDENTIALS.find(
-        (c) => c.email === data.email && c.password === data.password
-      );
-      if (match) {
-        toast.success(`Welcome back, ${match.name}`);
-        router.push(match.destination);
+    try {
+      const result = await signIn('credentials', {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        const match = DEMO_CREDENTIALS.find(
+          (c) => c.email === data.email && c.password === data.password
+        );
+        if (match) {
+          toast.success(`Welcome back, ${match.name}`);
+          router.push(match.destination);
+        }
       } else {
         setAuthError('Invalid credentials — use the demo accounts below to sign in');
       }
-    }, 1200);
+    } catch (error) {
+      setAuthError('Sign in failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignupSubmit = (data: SignupForm) => {
@@ -624,6 +703,18 @@ export default function AuthPageClient() {
                 )}
               </button>
 
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-4">
+                <div style={{ flex: 1, height: '1px', background: 'hsl(222 30% 18%)' }} />
+                <span className="text-xs" style={{ color: 'hsl(215 15% 45%)' }}>
+                  OR
+                </span>
+                <div style={{ flex: 1, height: '1px', background: 'hsl(222 30% 18%)' }} />
+              </div>
+
+              {/* Google Sign-In */}
+              <GoogleSignInButton isLoading={isGoogleLoading} selectedRole={selectedRole} />
+
               {/* Demo credentials */}
               <DemoCredentialsBox onUse={autofillCredentials} />
             </form>
@@ -867,6 +958,18 @@ export default function AuthPageClient() {
                   </>
                 )}
               </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-4">
+                <div style={{ flex: 1, height: '1px', background: 'hsl(222 30% 18%)' }} />
+                <span className="text-xs" style={{ color: 'hsl(215 15% 45%)' }}>
+                  OR
+                </span>
+                <div style={{ flex: 1, height: '1px', background: 'hsl(222 30% 18%)' }} />
+              </div>
+
+              {/* Google Sign-In */}
+              <GoogleSignInButton isLoading={isGoogleLoading} selectedRole={selectedRole} />
             </form>
           )}
 
